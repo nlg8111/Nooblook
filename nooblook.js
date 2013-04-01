@@ -61,13 +61,6 @@ BBLog.handle("add.plugin", {
             // instance.storage("permanent.test")
         );
 
-        // $.ajax({
-        //     url: "http://api.bf3stats.com/pc/playerlist/",
-        //     type: 'post',
-        //     data: { players: 'n-l-g' }
-        // }).done(function ( data ) {
-        //     console.log(data);
-        // })
 
         // testdata
         // instance.cache("cache.test", Math.random());
@@ -96,57 +89,74 @@ BBLog.handle("add.plugin", {
         $playerlist = $('#serverinfo-players-all-wrapper').find('.common-playername-personaname');
 
         if ( selectedServerId != oldSelectedServerId && $playerlist.length > 0) {
-            // $.each( $playerlist, function(k, v) {
-            //     var name = $(v).find('a').text();
-            //     players[k] = name;
-            // });
-            // console.log(players.toString());
             instance.cache('selectedServerId', selectedServerId);
+            
+            $.each( $playerlist, function(k, v) {
+                var name = $(v).find('a').text();
+                players[k] = name;
+            });
 
             $.ajax({
-                url: '/bf3/servers/getPlayersOnServer/' + selectedServerId + '/'
+                url: "http://api.bf3stats.com/pc/playerlist/",
+                type: 'post',
+                data: {
+                    players: players,
+                    opt: {
+                        clear: true,
+                        rank: true
+                    }
+                },
+                dataType: 'json'
             }).done(function ( data ) {
-                $.each(data.players, function(k, v) {
-                    $.ajax({
-                        url: '/bf3/overviewPopulateStats/' + v.personaId + '/None/1/'
-                    }).done(function( persondata ) {
-                        var level = persondata.data.currentRankNeeded.level;
-                        var ownLevel = persondata.data.compareStats.rank;
+                console.log(data);
+            })
 
-                        levels[levels.length] = level;
-                        if ( levels.length == data.players.length ) {
-                            var sum = levels.reduce(function(a, b) { return a + b });
-                            var avg = Math.round(sum / levels.length);
-                            var median = instance.median(instance, levels);
+            // $.ajax({
+            //     url: '/bf3/servers/getPlayersOnServer/' + selectedServerId + '/'
+            // }).done(function ( data ) {
+            //     $.each(data.players, function(k, v) {
+            //         $.ajax({
+            //             url: '/bf3/overviewPopulateStats/' + v.personaId + '/None/1/'
+            //         }).done(function( persondata ) {
+            //             var level = persondata.data.currentRankNeeded.level;
+            //             var ownLevel = persondata.data.compareStats.rank;
 
-                            serverLevels[selectedServerId] = {sum: sum, avg: avg, median: median};
+            //             levels[levels.length] = level;
+            //             if ( levels.length == data.players.length ) {
+            //                 var sum = levels.reduce(function(a, b) { return a + b });
+            //                 var avg = Math.round(sum / levels.length);
+            //                 var median = instance.median(instance, levels);
 
-                            var color;
+            //                 serverLevels[selectedServerId] = {sum: sum, avg: avg, median: median};
 
-                            if ( avg <= (ownLevel - 20) ) {
-                                color = '#c3df79';
-                            } else if ( avg > (ownLevel - 20) && avg <= (ownLevel + 5) ) {
-                                color = '#d3c27a';
-                            } else if ( avg > (ownLevel + 5) && avg <= (ownLevel + 20) ) {
-                                color = '#e08c36';
-                            } else if ( avg > (ownLevel + 20) && avg <= (ownLevel + 40) ) {
-                                color = '#f05110';
-                            } else if ( avg > (ownLevel + 40) ) {
-                                color = '#de0025';
-                            }
+            //                 var color;
 
-                            $selectedNode.find('.serverguide-cell-players').css({
-                                borderTop: '5px solid ' + color,
-                                height: '38px',
-                                lineHeight: '15px',
-                                paddingTop: '5px'
-                            })
-                            $selectedNode.find('.serverguide-cell-players').append('<br>' + avg + ' (' + median + ') lvl');
-                            // $selectedNode.find('.serverguide-expansions-container').append($lvlMarker.clone());
-                        }
-                    });
-                })
-            });
+            //                 if ( avg <= (ownLevel - 20) ) {
+            //                     color = '#c3df79';
+            //                 } else if ( avg > (ownLevel - 20) && avg <= (ownLevel + 5) ) {
+            //                     color = '#d3c27a';
+            //                 } else if ( avg > (ownLevel + 5) && avg <= (ownLevel + 20) ) {
+            //                     color = '#e08c36';
+            //                 } else if ( avg > (ownLevel + 20) && avg <= (ownLevel + 40) ) {
+            //                     color = '#f05110';
+            //                 } else if ( avg > (ownLevel + 40) ) {
+            //                     color = '#de0025';
+            //                 }
+
+            //                 $selectedNode.find('.serverguide-cell-players').css({
+            //                     borderTop: '5px solid ' + color,
+            //                     height: '38px',
+            //                     lineHeight: '15px',
+            //                     paddingTop: '5px'
+            //                 })
+            //                 $selectedNode.find('.serverguide-cell-players').append('<br>' + avg + ' (' + median + ') lvl');
+            //                 // $selectedNode.find('.serverguide-expansions-container').append($lvlMarker.clone());
+            //             }
+            //         });
+            //     })
+            // });            
+
+            
 
         }
 
