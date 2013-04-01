@@ -24,7 +24,6 @@ BBLog.handle("add.plugin", {
     */
     translations : {
         "en" : {
-            "general.apikey" : "Apikey for accessing the server that handles the requests"
         }
     },
 
@@ -38,7 +37,6 @@ BBLog.handle("add.plugin", {
     *     button and the handler will be executed when the user click on it (like plugins, themes, radar, etc..)
     */
     configFlags : [
-        ["general.apikey", 987654321]
         // ["my.option", 1],
         // ["my.btn.option", 1, function(instance){
         //     instance.myOwnCustomFunc123(instance);
@@ -61,7 +59,6 @@ BBLog.handle("add.plugin", {
             // instance.storage("permanent.test")
         );
 
-
         // testdata
         // instance.cache("cache.test", Math.random());
         // instance.storage("permanent.test", Math.random());
@@ -82,6 +79,8 @@ BBLog.handle("add.plugin", {
         var players = new Array();
         var levels = new Array();
         var serverLevels = new Array();
+            
+        instance.cacheOwnRank( instance );
 
         oldSelectedServerId = instance.cache('selectedServerId');
         $selectedNode = $('.serverguide-bodycells.active');
@@ -90,7 +89,12 @@ BBLog.handle("add.plugin", {
 
         if ( selectedServerId != oldSelectedServerId && $playerlist.length > 0) {
             instance.cache('selectedServerId', selectedServerId);
-            
+
+            $playersBox = $selectedNode.find('.serverguide-cell-players');
+            $playersBox.css({
+                background: 'url("http://i.imgur.com/utu7sfL.gif") no-repeat 90% center'
+            })
+
             $.each( $playerlist, function(k, v) {
                 var name = $(v).find('a').text();
                 players[k] = name;
@@ -108,7 +112,22 @@ BBLog.handle("add.plugin", {
                 },
                 dataType: 'json'
             }).done(function ( data ) {
-                console.log(data);
+                $.each(data.list, function(name, persondata) {
+                    console.log(persondata);
+                    if ( persondata.stats != null ) {
+                        levels[levels.length] = persondata.stats.rank.nr
+                    }
+                })
+
+                if( levels.length > 0 ) {
+                    var avgLevels = instance.getAvgLevels( instance, levels );
+                    instance.updatePlayersBox( instance, $playersBox, avgLevels );
+                }
+
+                console.log( avgLevels );
+                $playersBox.css({
+                    background: 'none'
+                })
             })
 
             // $.ajax({
@@ -185,6 +204,102 @@ BBLog.handle("add.plugin", {
             return values[half];
         else
             return (values[half-1] + values[half]) / 2.0;
+    },
+
+    getAvgLevels : function ( instance, levels ) {
+        var sum = levels.reduce(function(a, b) { return a + b });
+        var avg = Math.round(sum / levels.length);
+        var median = instance.median(instance, levels);
+
+        return { sum: sum, avg: avg, median: median };
+    },
+
+    updatePlayersBox : function ( instance, $playersBox, avgLevels ) {
+        ownRank = instance.cache('self.rank');
+        backgroundColor = instance.getBackgroundColor( instance, ownRank, avgLevels.avg );
+        console.log()
+        $playersBox.css({
+            borderLeft: '8px solid ' + backgroundColor,
+            height: '39px',
+            width: '63px',
+            lineHeight: '15px',
+            paddingTop: '8px',
+            paddingLeft: '4px'
+        })
+        $playersBox.append('<br>' + avgLevels.avg + ' (' + avgLevels.median + ')');
+    },
+
+    getOwnRank : function ( instance ) {
+        var rankImageUrl = $('.main-loggedin-rankbar-prev').attr('src');
+        var rankImage = rankImageUrl.replace(/^.*[\\\/]/, '');
+        var rankFromImage = parseInt(rankImage.replace(/[^0-9]/g, ''));
+        var rank = 0;
+        if( rankImage.match('/ss/') ) {
+            rank += 45;
+        } 
+        rank += rankFromImage;
+        return rank;
+    },
+
+    cacheOwnRank : function ( instance ) {
+        
+        var domReady = 0;
+        var cachedRank = instance.cache('self.rank');
+        
+        if ( $('.main-loggedin-rankbar-prev').length > 0 ) {
+            domReady = 1;
+        }
+
+        if ( cachedRank !== null || domReady == 0 ) {
+            return cachedRank;
+        }
+
+        instance.cache('self.rank', instance.getOwnRank( instance ));
+    },
+
+    // calcBackgroundColor : function ( instance, ownRank, avgLevel ) {
+    //     var ratio = avgLevel / ownRank;
+    //     var topValue = 220;
+    //     var minValue = 0;
+    //     var red = minValue;
+    //     var green = minValue;
+    //     var blue = minValue;
+
+    //     if ( ratio < 1 ) {
+    //         green = topValue;
+    //         red += Math.round((topValue - minValue) * ratio);
+    //     } else {
+    //         red = topValue;
+    //         green += Math.round((topValue - minValue) * (1 / ratio));
+    //     }
+    //     colors = {
+    //         red: red,
+    //         green: green,
+    //         blue: blue
+    //     }
+    //     console.log(colors);
+    //     return 'rgb('+red+','+green+','+blue+')';
+    // },
+    // 
+    
+    getBackgroundColor : function ( instance, ownRank, avgLevel ) {
+        var treshold = 10;
+        var color;
+        if ( avgLevel <= (ownRank - treshold * 2) ) {
+            color = '#797979';
+        } else if (avgLevel > (ownRank - treshold * 2) && avgLevel <= (ownRank - treshold) ) {
+            color = '#c7da46';
+        } else if ( avgLevel > (ownRank - treshold) && avgLevel <= (ownRank + treshold) ) {
+            color = '#dad846';
+        } else if ( avgLevel > (ownRank + treshold) && avgLevel <= (ownRank + treshold * 2) ) {
+            color = '#dab546';
+        } else if ( avgLevel > (ownRank + treshold * 2) && avgLevel <= (ownRank + treshold * 3) ) {
+            color = '#da8146';
+        } else if ( avgLevel > (ownRank + treshold * 3) && avgLevel <= (ownRank + treshold * 4) ) {
+            color = '#da4646';
+        }
+
+        return color;
     }
 
     // /**
