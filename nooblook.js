@@ -1,4 +1,15 @@
-// initialize your plugin
+/**
+ * Nooblook is a Better Battlelog plugin
+ *
+ * Nooblook fetches BF3 servers average ranks, and compares it to your own
+ * displaying it in a visual manner in server listing
+ * 
+ * @author Sami "NLG" Kurvinen sami.kurvinen@gmail.com
+ * @license Free for personal use, commercial not allowed, alteration
+ * allowed with the same license and crediting author
+ */
+
+// initialize plugin
 BBLog.handle("add.plugin", {
 
     /**
@@ -44,34 +55,21 @@ BBLog.handle("add.plugin", {
     ],
 
     /**
-    * A handler that be fired immediately (only once) after the plugin is loaded into bblog
-    *
-    * @param object instance The instance of your plugin which is the whole plugin object
-    *    Always use "instance" to access any plugin related function, not use "this" because it's not working properly
-    *    For example: If you add a new function to your addon, always pass the "instance" object
-    */
+     * Initialization routines for nooblooker
+     * @param  {object} instance The instance of plugin
+     */
     init : function(instance){
 
-        // some log to the console to show you how the things work
-        console.log(
-            // instance.storage("my.option"),
-            // instance.cache("cache.test"),
-            // instance.storage("permanent.test")
-        );
-
-        // testdata
-        // instance.cache("cache.test", Math.random());
-        // instance.storage("permanent.test", Math.random());
+        // Notify that the nooblooker is loaded
+        console.log('Nooblooker is loaded');
     },
 
     /**
-    * A trigger that fires everytime when the dom is changing
-    * This is how BBLog track Battlelog for any change, like url, content or anything
-    *
-    * @param object instance The instance of your plugin which is the whole plugin object
-    *    Always use "instance" to access any plugin related function, not use "this" because it's not working properly
-    *    For example: If you add a new function to your addon, always pass the "instance" object
-    */
+     * domchange is triggered every time the dom changes and is responsible
+     * for launching our actions. Contains the main logic of the plugin
+     * 
+     * @param  {object} instance The instance of plugin
+     */
     domchange : function(instance){
         var oldSelectedServerId;
         var selectedServerId;
@@ -80,30 +78,75 @@ BBLog.handle("add.plugin", {
         var levels = new Array();
         var serverLevels = new Array();
             
+        /**
+         * Makes sure our own rank is available for comparison.
+         *
+         * This can't be run in the init, as the rank is only stored in the dom
+         * and it's not available in domReady
+         */
         instance.cacheOwnRank( instance );
 
+        /**
+         * Get the previously selected server GUID so we can compare it and skip duplicate queries
+         * @type {string}
+         */
         oldSelectedServerId = instance.cache('selectedServerId');
+
+        /**
+         * The domNode holding the row for server info in serverlist.
+         * @type {jquery dom}
+         */
         $selectedNode = $('.serverguide-bodycells.active');
+
+        /**
+         * Currently selected server GUID
+         * @type {string}
+         */
         selectedServerId = $selectedNode.attr('guid');
+
+        /**
+         * Holds the domnode that lists the players names currently in selected server
+         * @type {jquery dom}
+         */
         $playerlist = $('#serverinfo-players-all-wrapper').find('.common-playername-personaname');
 
+        /**
+         * If we have actually changed the selected server and that server has players, proceed
+         */
         if ( selectedServerId != oldSelectedServerId && $playerlist.length > 0) {
+
+            /**
+             * Cache the newly selected server GUID
+             */
             instance.cache('selectedServerId', selectedServerId);
 
+            /**
+             * Get the Players (12/16) node that will get updated.
+             * Assign a loadergif to it that needs to be cleared later
+             */
             $playersBox = $selectedNode.find('.serverguide-cell-players');
             $playersBox.css({
                 background: 'url("http://i.imgur.com/utu7sfL.gif") no-repeat 90% center'
             })
 
+            /**
+             * Loop through the playerlist domnode, and parse the names from there, that will get sent to bf3stats.com
+             * @param  {string} k  Index of the dom array
+             * @param  {object} v  Value of the dom array - Holds the domnode
+             */
             $.each( $playerlist, function(k, v) {
                 var name = $(v).find('a').text();
                 players[k] = name;
             });
 
+            /**
+             * Connect to BF3stats.com API and fetch minimal info on all the players, including rank
+             */
             $.ajax({
                 url: "http://api.bf3stats.com/pc/playerlist/",
                 type: 'post',
                 data: {
+                    // Jquery will convert the players array to appropriate form for BF3stats so it gets the names
                     players: players,
                     opt: {
                         clear: true,
@@ -112,88 +155,51 @@ BBLog.handle("add.plugin", {
                 },
                 dataType: 'json'
             }).done(function ( data ) {
+
+                /**
+                 * Go through each players data json and store their rank from it for counting them
+                 *
+                 * Note that the BF3stats is not particularily fast and lacks a lot of players data, and updating
+                 * said players info to BF3stats would slow this realtime plugin way too much, so it's left out and ignored.
+                 * 
+                 * @param  {string} name        The Index of data.list json object, contains the name of the player
+                 * @param  {object} persondata  Value of the data.list json - holds all the data
+                 */
                 $.each(data.list, function(name, persondata) {
-                    console.log(persondata);
                     if ( persondata.stats != null ) {
                         levels[levels.length] = persondata.stats.rank.nr
                     }
                 })
 
+                /**
+                 * If we actually have gotten any members with viable ranks, get the average levels and update 
+                 * the players domNode
+                 */
                 if( levels.length > 0 ) {
                     var avgLevels = instance.getAvgLevels( instance, levels );
                     instance.updatePlayersBox( instance, $playersBox, avgLevels );
                 }
 
-                console.log( avgLevels );
+                /**
+                 * Clear the loadergif from players domnode background
+                 */
                 $playersBox.css({
                     background: 'none'
                 })
             })
-
-            // $.ajax({
-            //     url: '/bf3/servers/getPlayersOnServer/' + selectedServerId + '/'
-            // }).done(function ( data ) {
-            //     $.each(data.players, function(k, v) {
-            //         $.ajax({
-            //             url: '/bf3/overviewPopulateStats/' + v.personaId + '/None/1/'
-            //         }).done(function( persondata ) {
-            //             var level = persondata.data.currentRankNeeded.level;
-            //             var ownLevel = persondata.data.compareStats.rank;
-
-            //             levels[levels.length] = level;
-            //             if ( levels.length == data.players.length ) {
-            //                 var sum = levels.reduce(function(a, b) { return a + b });
-            //                 var avg = Math.round(sum / levels.length);
-            //                 var median = instance.median(instance, levels);
-
-            //                 serverLevels[selectedServerId] = {sum: sum, avg: avg, median: median};
-
-            //                 var color;
-
-            //                 if ( avg <= (ownLevel - 20) ) {
-            //                     color = '#c3df79';
-            //                 } else if ( avg > (ownLevel - 20) && avg <= (ownLevel + 5) ) {
-            //                     color = '#d3c27a';
-            //                 } else if ( avg > (ownLevel + 5) && avg <= (ownLevel + 20) ) {
-            //                     color = '#e08c36';
-            //                 } else if ( avg > (ownLevel + 20) && avg <= (ownLevel + 40) ) {
-            //                     color = '#f05110';
-            //                 } else if ( avg > (ownLevel + 40) ) {
-            //                     color = '#de0025';
-            //                 }
-
-            //                 $selectedNode.find('.serverguide-cell-players').css({
-            //                     borderTop: '5px solid ' + color,
-            //                     height: '38px',
-            //                     lineHeight: '15px',
-            //                     paddingTop: '5px'
-            //                 })
-            //                 $selectedNode.find('.serverguide-cell-players').append('<br>' + avg + ' (' + median + ') lvl');
-            //                 // $selectedNode.find('.serverguide-expansions-container').append($lvlMarker.clone());
-            //             }
-            //         });
-            //     })
-            // });            
-
-            
-
         }
 
     },
 
+ 
     /**
-    * This could be a function that you've implemented, it's up to you and your plugin
-    * Notice the "instance" parameter, you should always pass the instance to any own function
-    * See in the "my.btn.option" config flag click handler where this function is called for example
-    *
-    * @param object instance The instance of your plugin which is the whole plugin object
-    *    Always use "instance" to access any plugin related function, not use "this" because it's not working properly
-    *    For example: If you add a new function to your addon, always pass the "instance" object
-    */
-    // myOwnCustomFunc123 : function(instance){
-    //     alert("Hooo boy, you've clicked the button in the options. Now it's on you what you will make with this feature!");
-    // },
-
+     * Gets the median out of array of values
+     * I got this from somewhere in StackOverflow.
+     * 
+     * @param  {object} instance The instance of the plugin
+     * @param  {array} values   Values array to get the mean from
+     * @return {decimal}        The mean
+     */
     median : function ( instance, values ) {
          
         values.sort( function(a,b) {return a - b;} );
@@ -206,6 +212,13 @@ BBLog.handle("add.plugin", {
             return (values[half-1] + values[half]) / 2.0;
     },
 
+    /**
+     * Gets the average and mean of given levels array  
+     * 
+     * @param  {Object} instance The instance of the plugin
+     * @param  {Array} levels    The array holding all the ranks of players 
+     * @return {object}          Object containing the sum, average and median
+     */
     getAvgLevels : function ( instance, levels ) {
         var sum = levels.reduce(function(a, b) { return a + b });
         var avg = Math.round(sum / levels.length);
@@ -214,10 +227,17 @@ BBLog.handle("add.plugin", {
         return { sum: sum, avg: avg, median: median };
     },
 
+    /**
+     * Throws the fetched avgLevels and comparsions to the serverlist dom of current server
+     * 
+     * @param  {object} instance    The instance of the plugin
+     * @param  {jquery dom} $playersBox This is the actualy domnode that gets updated
+     * @param  {Object} avgLevels   This is the averageLevels object that is returned from getAvgLevels()
+     */
     updatePlayersBox : function ( instance, $playersBox, avgLevels ) {
         ownRank = instance.cache('self.rank');
         backgroundColor = instance.getBackgroundColor( instance, ownRank, avgLevels.avg );
-        console.log()
+
         $playersBox.css({
             borderLeft: '8px solid ' + backgroundColor,
             height: '39px',
@@ -229,11 +249,22 @@ BBLog.handle("add.plugin", {
         $playersBox.append('<br>' + avgLevels.avg + ' (' + avgLevels.median + ')');
     },
 
+    /**
+     * Parses your own rank from the dom. Your own rank is not stored anywhere as plain text, and only
+     * logical way to get it with out doing another HTTP request, is to parse it from the rank imageurl
+     * @param  {object} instance The instance of plugin
+     * @return {Integer}          Returns your own rank that is fetched from the dom
+     */
     getOwnRank : function ( instance ) {
+        // Get the whole url
         var rankImageUrl = $('.main-loggedin-rankbar-prev').attr('src');
+        // Get the file from said url
         var rankImage = rankImageUrl.replace(/^.*[\\\/]/, '');
+        // Remove the "r" and "ss" and ".png" parts of the filename
         var rankFromImage = parseInt(rankImage.replace(/[^0-9]/g, ''));
+        // Start with lvl 0
         var rank = 0;
+        // If you're over rank 45, the filenaming changes and starts the count from 1 so compensate
         if( rankImage.match('/ss/') ) {
             rank += 45;
         } 
@@ -241,6 +272,9 @@ BBLog.handle("add.plugin", {
         return rank;
     },
 
+    /**
+     * Caches your own rank for later use
+     */
     cacheOwnRank : function ( instance ) {
         
         var domReady = 0;
@@ -257,6 +291,12 @@ BBLog.handle("add.plugin", {
         instance.cache('self.rank', instance.getOwnRank( instance ));
     },
 
+    /**
+     * calcBackgroundColor calculates a fluid range of colors for the comparison indicator.
+     * However, I found that the differences were too suttle and it didn't properly steer
+     * the desire to join a server that was a little bit over your head vs. WAY over your head.
+     * So I ended up disabling it and creating a rank staircase type of thingy with getBackgroundColor
+     */
     // calcBackgroundColor : function ( instance, ownRank, avgLevel ) {
     //     var ratio = avgLevel / ownRank;
     //     var topValue = 220;
@@ -282,6 +322,15 @@ BBLog.handle("add.plugin", {
     // },
     // 
     
+    /**
+     * Returns a given color for the comparison indicator based on rank ranges. If the server's rank is 
+     * over 20 ranks below you, it shows it as gray. If it's within 20 levels under you, it shows it as green as
+     * easy, and every 10 levels get it closer to red, until its over 50 levels higer than you and it's all red.
+     * @param  {object} instance The plugin instance
+     * @param  {integer} ownRank  Your own rank
+     * @param  {int} avgLevel The average level that you base your comparisons
+     * @return {string}          The HEX color value for the indicator
+     */
     getBackgroundColor : function ( instance, ownRank, avgLevel ) {
         var treshold = 10;
         var color;
@@ -301,38 +350,4 @@ BBLog.handle("add.plugin", {
 
         return color;
     }
-
-    // /**
-    // * This function will be setted (injected) by the initializer
-    // * This placeholder must not be implemented in your plugin,
-    // *    it's added for tutorial purposes only in this example to show you how the function will look like
-    // * Get the translation for your plugin, depends on the current user language
-    // *
-    // * @param string key
-    // */
-    // t : function(key){},
-
-    // *
-    // * This function will be setted (injected) by the initializer
-    // * This placeholder must not be implemented in your plugin,
-    // *    it's added for tutorial purposes only in this example to show you how the function will look like
-    // * Get/Set values in the plugin cache, cache means a temporarily cache which will be flushed after a complete page reload (not a ajax reload)
-    // *
-    // * @param string key
-    // * @param mixed value Optional, if not set the function return the value instead of setting it
-    
-    // cache : function(key, value){},
-
-    // /**
-    // * This function will be setted (injected) by the initializer
-    // * This placeholder must not be implemented in your plugin,
-    // *    it's added for tutorial purposes only in this example to show you how the function will look like
-    // * Get/Set values in the permanent storage, this data will be stored forever
-    // * Please use this not as much because users browser storage is limited
-    // * Also the config flag setting will be stored here, in our example "foo.bar", "my.option" and "my.btn.option" as integer values
-    // *
-    // * @param string key
-    // * @param mixed value Optional, if not set the function return the value instead of setting it
-    // */
-    // storage : function(key, value){}
 });
