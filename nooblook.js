@@ -325,7 +325,7 @@ BBLog.handle("add.plugin", {
     /**
      * Returns a given color for the comparison indicator based on rank ranges. If the server's rank is 
      * over 20 ranks below you, it shows it as gray. If it's within 20 levels under you, it shows it as green as
-     * easy, and every 10 levels get it closer to red, until its over 50 levels higer than you and it's all red.
+     * easy, and every 10 levels get it closer to red, until its over 40 levels higer than you and it's all red.
      * @param  {object} instance The plugin instance
      * @param  {integer} ownRank  Your own rank
      * @param  {int} avgLevel The average level that you base your comparisons
@@ -345,6 +345,8 @@ BBLog.handle("add.plugin", {
         } else if ( avgLevel > (ownRank + treshold * 2) && avgLevel <= (ownRank + treshold * 3) ) {
             color = '#da8146';
         } else if ( avgLevel > (ownRank + treshold * 3) && avgLevel <= (ownRank + treshold * 4) ) {
+            color = '#da6246';
+        } else if ( avgLevel > (ownRank + treshold * 4) ) {
             color = '#da4646';
         }
 
