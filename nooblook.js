@@ -62,6 +62,8 @@ BBLog.handle("add.plugin", {
 
         // Notify that the nooblooker is loaded
         console.log('Nooblooker is loaded');
+
+        instance.cacheOwnSkill( instance );
     },
 
     /**
@@ -140,7 +142,7 @@ BBLog.handle("add.plugin", {
             });
 
             /**
-             * Connect to BF3stats.com API and fetch minimal info on all the players, including rank
+             * Connect to BF3stats.com API and fetch minimal info on all the players, but including global info - which includes skill lvl
              */
             $.ajax({
                 url: "http://api.bf3stats.com/pc/playerlist/",
@@ -150,14 +152,14 @@ BBLog.handle("add.plugin", {
                     players: players,
                     opt: {
                         clear: true,
-                        rank: true
+                        global: true
                     }
                 },
                 dataType: 'json'
             }).done(function ( data ) {
 
                 /**
-                 * Go through each players data json and store their rank from it for counting them
+                 * Go through each players data json and store their skill level from it for counting them
                  *
                  * Note that the BF3stats is not particularily fast and lacks a lot of players data, and updating
                  * said players info to BF3stats would slow this realtime plugin way too much, so it's left out and ignored.
@@ -167,7 +169,7 @@ BBLog.handle("add.plugin", {
                  */
                 $.each(data.list, function(name, persondata) {
                     if ( persondata.stats != null ) {
-                        levels[levels.length] = persondata.stats.rank.nr
+                        levels[levels.length] = persondata.stats.global.elo
                     }
                 })
 
@@ -216,13 +218,13 @@ BBLog.handle("add.plugin", {
      * Gets the average and mean of given levels array  
      * 
      * @param  {Object} instance The instance of the plugin
-     * @param  {Array} levels    The array holding all the ranks of players 
+     * @param  {Array} levels    The array holding all the levels of players 
      * @return {object}          Object containing the sum, average and median
      */
     getAvgLevels : function ( instance, levels ) {
-        var sum = levels.reduce(function(a, b) { return a + b });
+        var sum = Math.round(levels.reduce(function(a, b) { return a + b }));
         var avg = Math.round(sum / levels.length);
-        var median = instance.median(instance, levels);
+        var median = Math.round(instance.median(instance, levels));
 
         return { sum: sum, avg: avg, median: median };
     },
@@ -235,8 +237,8 @@ BBLog.handle("add.plugin", {
      * @param  {Object} avgLevels   This is the averageLevels object that is returned from getAvgLevels()
      */
     updatePlayersBox : function ( instance, $playersBox, avgLevels ) {
-        ownRank = instance.cache('self.rank');
-        backgroundColor = instance.getBackgroundColor( instance, ownRank, avgLevels.avg );
+        ownSkill = instance.getOwnSkill( instance );
+        backgroundColor = instance.getBackgroundColorSkill( instance, ownSkill, avgLevels.avg );
 
         $playersBox.css({
             borderLeft: '8px solid ' + backgroundColor,
@@ -292,6 +294,54 @@ BBLog.handle("add.plugin", {
     },
 
     /**
+     * Gets your skill from BF3stats.com
+     */
+    getOwnSkill : function ( instance ) {
+        /**
+         * If we have fetched the skill already - no need to fetch it again.
+         */
+        if ( instance.cache('self.skill') !== null ) {
+            return instance.cache('self.skill');
+        }
+
+        var name = instance.getOwnName( instance );
+        var skill;
+
+        $.ajax({
+            url: 'http://api.bf3stats.com/pc/playerlist/',
+            type: 'post',
+            dataType: 'json',
+            async: false,
+            data: {players: name }
+        }).done( function ( data ) {
+            if ( data.list[name].stats !== null && typeof data.list[name].stats !== 'undefined' ) {
+                skill = Math.round(data.list[name].stats.global.elo);
+            } else {
+                console.log('Error getting your skill - please update your BF3stats profile.')
+            }
+        })
+
+        return skill;
+    },
+
+    /**
+     * Gets your own name from dom
+     */
+    getOwnName : function ( instance ) {
+        var name = $('.base-header-soldier-link').text().trim();
+        return name;
+    },
+
+    /**
+     * Caches and returns your own skill
+     */
+    cacheOwnSkill : function ( instance ) {
+        var skill = instance.getOwnSkill( instance );
+        instance.cache('self.skill', skill);
+        return skill;
+    },
+
+    /**
      * calcBackgroundColor calculates a fluid range of colors for the comparison indicator.
      * However, I found that the differences were too suttle and it didn't properly steer
      * the desire to join a server that was a little bit over your head vs. WAY over your head.
@@ -331,7 +381,7 @@ BBLog.handle("add.plugin", {
      * @param  {int} avgLevel The average level that you base your comparisons
      * @return {string}          The HEX color value for the indicator
      */
-    getBackgroundColor : function ( instance, ownRank, avgLevel ) {
+    getBackgroundColorRank : function ( instance, ownRank, avgLevel ) {
         var treshold = 10;
         var color;
         if ( avgLevel <= (ownRank - treshold * 2) ) {
@@ -351,5 +401,36 @@ BBLog.handle("add.plugin", {
         }
 
         return color;
-    }
+    },
+
+    /**
+     * Returns a given color for the comparison indicator based on Level ranges. If the server's Level is 
+     * over 300 Levels below you, it shows it as gray. If it's within 200 levels under you, it shows it as green as
+     * easy, and every 100 levels get it closer to red, until its over 400 levels higer than you and it's all red.
+     * @param  {object} instance The plugin instance
+     * @param  {integer} ownLevel  Your own Level
+     * @param  {int} avgLevel The average level that you base your comparisons
+     * @return {string}          The HEX color value for the indicator
+     */
+    getBackgroundColorSkill : function ( instance, ownLevel, avgLevel ) {
+        var treshold = 100;
+        var color;
+        if ( avgLevel <= (ownLevel - treshold * 3) ) {
+            color = '#797979';
+        } else if (avgLevel > (ownLevel - treshold * 3) && avgLevel <= (ownLevel - treshold) ) {
+            color = '#c7da46';
+        } else if ( avgLevel > (ownLevel - treshold) && avgLevel <= (ownLevel) ) {
+            color = '#dad846';
+        } else if ( avgLevel > (ownLevel) && avgLevel <= (ownLevel + treshold) ) {
+            color = '#dab546';
+        } else if ( avgLevel > (ownLevel + treshold) && avgLevel <= (ownLevel + treshold * 2) ) {
+            color = '#da8146';
+        } else if ( avgLevel > (ownLevel + treshold * 2) && avgLevel <= (ownLevel + treshold * 3) ) {
+            color = '#da6246';
+        } else if ( avgLevel > (ownLevel + treshold * 4) ) {
+            color = '#da4646';
+        }
+
+        return color;
+    },
 });
