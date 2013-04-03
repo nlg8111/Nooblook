@@ -80,13 +80,6 @@ BBLog.handle("add.plugin", {
         var levels = new Array();
         var serverLevels = new Array();
             
-        /**
-         * Makes sure our own rank is available for comparison.
-         *
-         * This can't be run in the init, as the rank is only stored in the dom
-         * and it's not available in domReady
-         */
-        instance.cacheOwnRank( instance );
 
         /**
          * Get the previously selected server GUID so we can compare it and skip duplicate queries
