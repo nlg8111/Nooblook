@@ -1,3 +1,5 @@
+"use strict";
+
 /**
  * Nooblook is a Better Battlelog plugin
  *
@@ -5,6 +7,7 @@
  * displaying it in a visual manner in server listing
  * 
  * @author Sami "NLG" Kurvinen sami.kurvinen@gmail.com
+ * @author John "Johntron" Syrinek <john.syrinek@gmail.com>
  * @license Free for personal use, commercial not allowed, alteration
  * allowed with the same license and crediting author
  */
@@ -91,7 +94,7 @@ BBLog.handle("add.plugin", {
          * The domNode holding the row for server info in serverlist.
          * @type {jquery dom}
          */
-        $selectedNode = $('.serverguide-bodycells.active');
+        var $selectedNode = $('.serverguide-bodycells.active');
 
         /**
          * Currently selected server GUID
@@ -119,7 +122,7 @@ BBLog.handle("add.plugin", {
              * Get the Players (12/16) node that will get updated.
              * Assign a loadergif to it that needs to be cleared later
              */
-            $playersBox = $selectedNode.find('.serverguide-cell-players');
+            var $playersBox = $selectedNode.find('.serverguide-cell-players');
             $playersBox.css({
                 background: 'url("http://i.imgur.com/utu7sfL.gif") no-repeat 90% center'
             })
@@ -230,8 +233,8 @@ BBLog.handle("add.plugin", {
      * @param  {Object} avgLevels   This is the averageLevels object that is returned from getAvgLevels()
      */
     updatePlayersBox : function ( instance, $playersBox, avgLevels ) {
-        ownSkill = instance.getOwnSkill( instance );
-        backgroundColor = instance.getBackgroundColorSkill( instance, ownSkill, avgLevels.avg );
+        var ownSkill = instance.getOwnSkill( instance );
+        var backgroundColor = instance.getBackgroundColorSkill( instance, ownSkill, avgLevels.avg );
 
         $playersBox.css({
             borderLeft: '8px solid ' + backgroundColor,
@@ -321,7 +324,7 @@ BBLog.handle("add.plugin", {
      * Gets your own name from dom
      */
     getOwnName : function ( instance ) {
-        var name = $('.base-header-soldier-link').text().trim();
+        var name = $('.soldierstats-box .name').text().trim();
         return name;
     },
 
@@ -425,5 +428,5 @@ BBLog.handle("add.plugin", {
         }
 
         return color;
-    },
+    }
 });
