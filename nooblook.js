@@ -76,48 +76,28 @@ BBLog.handle("add.plugin", {
      * @param  {object} instance The instance of plugin
      */
     domchange : function(instance){
-        var oldSelectedServerId;
-        var selectedServerId;
-        var $playerlist;
-        var players = new Array();
-        var levels = new Array();
-        var serverLevels = new Array();
-            
+        var $selectedNode = $('.server-row.active'),
+            oldSelectedServerId = instance.cache('selectedServerId'),
+            selectedServerId = $selectedNode.data('guid');
+        
+        if (!$selectedNode.length || selectedServerId === oldSelectedServerId) {
+            return; // Short-circuit
+        }
 
-        /**
-         * Get the previously selected server GUID so we can compare it and skip duplicate queries
-         * @type {string}
-         */
-        oldSelectedServerId = instance.cache('selectedServerId');
-
-        /**
-         * The domNode holding the row for server info in serverlist.
-         * @type {jquery dom}
-         */
-        var $selectedNode = $('.server-row.active');
-
-        /**
-         * Currently selected server GUID
-         * @type {string}
-         */
-        selectedServerId = $selectedNode.data('guid');
-
+        instance.cache('selectedServerId', selectedServerId);
+        
         $.ajax('http://battlelog.battlefield.com/bf4/servers/show/pc/' + selectedServerId + '/', {headers: {"X-AjaxNavigation":1}}).then(function (data) {
             var players = data.context.players.map(function(player) {
-                return player.persona.personaName;
-            });
+                    return player.persona.personaName;
+                });
             
-            /**
-             * If we have actually changed the selected server and that server has players, proceed
-             */
-            if ( selectedServerId === oldSelectedServerId || players.length === 0) {
+            if (players.length === 0) {
                 return; // Short-circuit
             }
     
             /**
              * Cache the newly selected server GUID
              */
-            instance.cache('selectedServerId', selectedServerId);
 
             /**
              * Get the Players (12/16) node that will get updated.
@@ -144,7 +124,9 @@ BBLog.handle("add.plugin", {
                 },
                 dataType: 'json'
             }).done(function ( data ) {
-
+                var levels = [],
+                    serverLevels = [];
+                
                 /**
                  * Go through each players data json and store their skill level from it for counting them
                  *
