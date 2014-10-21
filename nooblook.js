@@ -77,9 +77,10 @@ BBLog.handle("add.plugin", {
      */
     domchange : function(instance){
         var $selectedNode = $('.server-row.active'),
+-           oldSelectedServerId = instance.cache('selectedServerId'), // Used to ensure we don't endlessly update the DOM
             selectedServerId = $selectedNode.data('guid');
-        
-        if (!$selectedNode.length) {
+         
+-       if (!$selectedNode.length || selectedServerId === oldSelectedServerId) {
             return; // Short-circuit
         }
 
