@@ -1,4 +1,4 @@
-Nooblook - a Better Battlelog plugin for Battlefield 3.
+Nooblook - a Better Battlelog plugin for Battlefield 4.
 
 Fetches the server's players skill, averages them and compares it to yours and displays it in a visual manner in the serverlist.
 
