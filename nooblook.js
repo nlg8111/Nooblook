@@ -1,3 +1,5 @@
+"use strict";
+
 /**
  * Nooblook is a Better Battlelog plugin
  *
@@ -5,6 +7,7 @@
  * displaying it in a visual manner in server listing
  * 
  * @author Sami "NLG" Kurvinen sami.kurvinen@gmail.com
+ * @author John "Johntron" Syrinek <john.syrinek@gmail.com>
  * @license Free for personal use, commercial not allowed, alteration
  * allowed with the same license and crediting author
  */
@@ -73,66 +76,37 @@ BBLog.handle("add.plugin", {
      * @param  {object} instance The instance of plugin
      */
     domchange : function(instance){
-        var oldSelectedServerId;
-        var selectedServerId;
-        var $playerlist;
-        var players = new Array();
-        var levels = new Array();
-        var serverLevels = new Array();
+        var $selectedNode = $('.server-row.active'),
+            oldSelectedServerId = instance.cache('selectedServerId'), // Used to ensure we don't endlessly update the DOM
+            selectedServerId = $selectedNode.data('guid');
+         
+        if (!$selectedNode.length || selectedServerId === oldSelectedServerId) {
+            return; // Short-circuit
+        }
+
+        instance.cache('selectedServerId', selectedServerId);
+        
+        $.ajax('http://battlelog.battlefield.com/bf4/servers/show/pc/' + selectedServerId + '/', {headers: {"X-AjaxNavigation":1}}).then(function (data) {
+            var players = data.context.players.map(function(player) {
+                    return player.persona.personaName;
+                });
             
-
-        /**
-         * Get the previously selected server GUID so we can compare it and skip duplicate queries
-         * @type {string}
-         */
-        oldSelectedServerId = instance.cache('selectedServerId');
-
-        /**
-         * The domNode holding the row for server info in serverlist.
-         * @type {jquery dom}
-         */
-        $selectedNode = $('.serverguide-bodycells.active');
-
-        /**
-         * Currently selected server GUID
-         * @type {string}
-         */
-        selectedServerId = $selectedNode.attr('guid');
-
-        /**
-         * Holds the domnode that lists the players names currently in selected server
-         * @type {jquery dom}
-         */
-        $playerlist = $('#serverinfo-players-all-wrapper').find('.common-playername-personaname');
-
-        /**
-         * If we have actually changed the selected server and that server has players, proceed
-         */
-        if ( selectedServerId != oldSelectedServerId && $playerlist.length > 0) {
-
+            if (players.length === 0) {
+                return; // Short-circuit
+            }
+    
             /**
              * Cache the newly selected server GUID
              */
-            instance.cache('selectedServerId', selectedServerId);
 
             /**
              * Get the Players (12/16) node that will get updated.
              * Assign a loadergif to it that needs to be cleared later
              */
-            $playersBox = $selectedNode.find('.serverguide-cell-players');
+            var $playersBox = $selectedNode.find('.players');
             $playersBox.css({
                 background: 'url("http://i.imgur.com/utu7sfL.gif") no-repeat 90% center'
             })
-
-            /**
-             * Loop through the playerlist domnode, and parse the names from there, that will get sent to bf3stats.com
-             * @param  {string} k  Index of the dom array
-             * @param  {object} v  Value of the dom array - Holds the domnode
-             */
-            $.each( $playerlist, function(k, v) {
-                var name = $(v).find('a').text();
-                players[k] = name;
-            });
 
             /**
              * Connect to BF3stats.com API and fetch minimal info on all the players, but including global info - which includes skill lvl
@@ -150,7 +124,9 @@ BBLog.handle("add.plugin", {
                 },
                 dataType: 'json'
             }).done(function ( data ) {
-
+                var levels = [],
+                    serverLevels = [];
+                
                 /**
                  * Go through each players data json and store their skill level from it for counting them
                  *
@@ -182,8 +158,7 @@ BBLog.handle("add.plugin", {
                     background: 'none'
                 })
             })
-        }
-
+        });
     },
 
  
@@ -230,8 +205,8 @@ BBLog.handle("add.plugin", {
      * @param  {Object} avgLevels   This is the averageLevels object that is returned from getAvgLevels()
      */
     updatePlayersBox : function ( instance, $playersBox, avgLevels ) {
-        ownSkill = instance.getOwnSkill( instance );
-        backgroundColor = instance.getBackgroundColorSkill( instance, ownSkill, avgLevels.avg );
+        var ownSkill = instance.getOwnSkill( instance );
+        var backgroundColor = instance.getBackgroundColorSkill( instance, ownSkill, avgLevels.avg );
 
         $playersBox.css({
             borderLeft: '8px solid ' + backgroundColor,
@@ -321,7 +296,7 @@ BBLog.handle("add.plugin", {
      * Gets your own name from dom
      */
     getOwnName : function ( instance ) {
-        var name = $('.base-header-soldier-link').text().trim();
+        var name = $('.soldierstats-box .name').text().trim();
         return name;
     },
 
@@ -425,5 +400,5 @@ BBLog.handle("add.plugin", {
         }
 
         return color;
-    },
+    }
 });
